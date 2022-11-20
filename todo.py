@@ -38,7 +38,6 @@ todo = api.model('Todo', {
 
 class TodoDAO(object):
     def __init__(self):
-
         self.todos = []
 
     def get(self, id):
@@ -47,6 +46,7 @@ class TodoDAO(object):
         cursor.execute(input_query)
         todo = cursor.fetchone()
         return todo
+
     def update_todo(self):
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute("select * from todo")
@@ -54,20 +54,15 @@ class TodoDAO(object):
         self.todos=[]
         for i in todos_from_db:
             self.todos.append(i)
+
     def get_list(self, due_date):
         self.update_todo()
-        
         filtered_list = []
-        
         for todo in self.todos[6:]:
-            
             if(datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d") <= datetime.datetime.strptime(str(due_date),"%Y-%m-%d")):
-              
                 if not (todo['Status'] == 'Finished' or todo['Status'] == 'finished'):
                     filtered_list.append(todo)
         return filtered_list
-
-    
 
     def get_status_list(self, status):
         self.update_todo()
@@ -78,7 +73,6 @@ class TodoDAO(object):
         return filtered_list
         
     def create(self, data):
-       
         title = data.get('title')
         description = data.get('description')
         Due_by = data.get('Due_by')
@@ -108,10 +102,7 @@ class TodoDAO(object):
         todo = self.get(id)
        
 
-
 DAO = TodoDAO()
-
-
 
 @ns.route('/')
 class TodoList(Resource):
@@ -136,7 +127,6 @@ class TodoList(Resource):
         return DAO.create(api.payload), 201
 
 
-
 @ns.route('/<string:due_date>')
 class TodoListByDueDate(Resource):
     '''Shows a list of all todos By Due Date'''
@@ -146,7 +136,6 @@ class TodoListByDueDate(Resource):
     def get(self, due_date):
         '''List all tasks'''
         return DAO.get_list(due_date)
-
 
 
 @ns.route('/overduedate')
@@ -160,11 +149,9 @@ class TodoListByOverDueDate(Resource):
         self.update_todo()
         filtered_list = []
         over_due_date = str(datetime.datetime.today()).split()[0]
-     
         for todo in self.todos[6:]:
             if datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d") < datetime.datetime.strptime(over_due_date,"%Y-%m-%d"):
                 filtered_list.append(todo)
-           
         return filtered_list
 
 
