@@ -55,10 +55,10 @@ class TodoDAO(object):
         for i in todos_from_db:
             self.todos.append(i)
 
-    def get_list(self, due_date):
+    def get_task_ondue(self, due_date):
         self.update_todo()
         filtered_list = []
-        for todo in self.todos[6:]:
+        for todo in self.todos:
             if(datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d") <= datetime.datetime.strptime(str(due_date),"%Y-%m-%d")):
                 if not (todo['Status'] == 'Finished' or todo['Status'] == 'finished'):
                     filtered_list.append(todo)
@@ -71,7 +71,15 @@ class TodoDAO(object):
             if todo['Status'] == status:
                 filtered_list.append(todo)
         return filtered_list
-        
+    
+    def get_status_list_finished(self, status):
+        self.update_todo()
+        filtered_list = []
+        for todo in self.todos:
+            if todo['Status'] == "Finished"  or  todo['Status'] == "finished" :
+                filtered_list.append(todo)
+        return filtered_list
+
     def create(self, data):
         title = data.get('title')
         description = data.get('description')
@@ -99,8 +107,15 @@ class TodoDAO(object):
         input_query="DELETE FROM todo WHERE id =" + str(id) 
         cursor.execute(input_query)
         mysql.connection.commit()
-        todo = self.get(id)
-       
+        todo = self.get(id)    
+        
+    def get_all_finished(self):
+        self.update_todo()
+        filtered_list = []
+        for todo in self.todos:
+            if todo['Status'] == "Finished" or todo['Status'] == "finished":
+                filtered_list.append(todo)
+        return filtered_list
 
 DAO = TodoDAO()
 
@@ -127,44 +142,6 @@ class TodoList(Resource):
         return DAO.create(api.payload), 201
 
 
-@ns.route('/<string:due_date>')
-class TodoListByDueDate(Resource):
-    '''Shows a list of all todos By Due Date'''
-
-    @ns.doc('list_todos_by_due')
-    @ns.marshal_list_with(todo)
-    def get(self, due_date):
-        '''List all tasks'''
-        return DAO.get_list(due_date)
-
-
-@ns.route('/overduedate')
-class TodoListByOverDueDate(Resource):
-    '''Shows a list of all todos By Over Due Date'''
-
-    @ns.doc('list_todos_by_over_due')
-    @ns.marshal_list_with(todo)
-    def get(self):
-        '''List all tasks'''
-        self.update_todo()
-        filtered_list = []
-        over_due_date = str(datetime.datetime.today()).split()[0]
-        for todo in self.todos[6:]:
-            if datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d") < datetime.datetime.strptime(over_due_date,"%Y-%m-%d"):
-                filtered_list.append(todo)
-        return filtered_list
-
-
-@ns.route('/status/<string:status>')
-class TodoListByStatus(Resource):
-    '''Shows a list of all todos By Status'''
-
-    @ns.doc('list_todos_by_status')
-    @ns.marshal_list_with(todo)
-    def get(self, status):
-        '''List all tasks'''
-        return DAO.get_status_list(status)
-
 @ns.route('/<int:id>')
 @ns.response(404, 'Todo not found')
 @ns.param('id', 'The task identifier')
@@ -189,6 +166,63 @@ class Todo(Resource):
         '''Update a task given its identifier'''
         return DAO.update(id, api.payload)
 
+
+
+@ns.route('/<string:due_date>')
+class TodoListByDueDate(Resource):
+    '''Shows a list of all todos By Due Date'''
+
+    @ns.doc('list_todos_by_due')
+    @ns.marshal_list_with(todo)
+    def get(self, due_date):
+        '''List all tasks which are due to be ﬁnished on that speciﬁed date'''
+        return DAO.get_task_ondue(due_date)
+
+
+@ns.route('/overduedate')
+class TodoListByOverDueDate(Resource):
+    '''Shows a list of all todos By Over Due Date'''
+
+    @ns.doc('list_todos_by_over_due')
+    @ns.marshal_list_with(todo)
+    def get(self):
+        '''List all tasks which are past their due date'''
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute("select * from todo")
+        todos_from_db = cursor.fetchall()
+        self.todos=[]
+        for i in todos_from_db:
+            self.todos.append(i)
+        filtered_list = []
+        over_due_date = str(datetime.datetime.today()).split()[0]
+        for todo in self.todos:
+            if datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d") < datetime.datetime.strptime(over_due_date,"%Y-%m-%d"):
+                filtered_list.append(todo)
+        return filtered_list
+
+
+@ns.route('/status/<string:status>')
+class TodoListByStatus(Resource):
+    '''Shows a list of all todos By Status (Progress,)'''
+
+    @ns.doc('list_todos_by_status')
+    @ns.marshal_list_with(todo)
+    def get(self, status):
+        '''List all tasks'''
+        return DAO.get_status_list(status)
+
+
+
+@ns.route('/Finished')
+class TodoListByOverDueDate(Resource):
+    '''Shows a list of all todos By Over Due Date'''
+
+    @ns.doc('list_todos_by_over_due')
+    @ns.marshal_list_with(todo)
+    def get(self):
+        '''List all tasks which are FINISHED'''
+        return DAO.get_all_finished()
+        
 
 
 if __name__ == '__main__':
