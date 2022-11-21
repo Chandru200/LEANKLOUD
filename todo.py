@@ -157,8 +157,7 @@ class TodoList(Resource):
             } 
         else:
             return response
-
-
+            
 
 @ns.route('/<int:id>')
 @ns.response(404, 'Todo not found')
