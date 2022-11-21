@@ -1,31 +1,16 @@
 import werkzeug
 werkzeug.cached_property = werkzeug.utils.cached_property
-import datetime
 
+import datetime
 from flask import Flask
-from flask_restplus import Api, Resource, fields
-from werkzeug.contrib.fixers import ProxyFix
+from flask_restplus import Namespace,Api, Resource, fields
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
-import re
- 
-app = Flask(__name__)
- 
-app.secret_key = 'your secret key'
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'admin'
-app.config['MYSQL_DB'] = 'todo_task'
-mysql = MySQL(app)
- 
-
-
-app.wsgi_app = ProxyFix(app.wsgi_app)
-api = Api(app, version='1.0', title='TodoMVC API',
-    description='A simple TodoMVC API',
+from LOGIN import Log as isLogin
+api = Namespace(
+   'TODO', description='TODO app'
 )
-
-ns = api.namespace('todos', description='TODO operations')
+ns = api
 
 todo = api.model('Todo', {
     'id': fields.Integer(readonly=True, description='The task unique identifier'),
@@ -35,7 +20,8 @@ todo = api.model('Todo', {
     'Status': fields.String(required=True, description='Current Status'),
 })
 
-
+app = Flask(__name__)
+mysql = MySQL(app)
 class TodoDAO(object):
     def __init__(self):
         self.todos = []
@@ -58,10 +44,8 @@ class TodoDAO(object):
     def get_task_ondue(self, due_date):
         self.update_todo()
         filtered_list = []
-        ENTERED_DUE_DATE = datetime.datetime.strptime(str(due_date),"%Y-%m-%d")
         for todo in self.todos:
-            TODO_DUE_DATE = datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d")
-            if( TODO_DUE_DATE <= ENTERED_DUE_DATE):
+            if(datetime.datetime.strptime(str(todo['Due_by']),"%Y-%m-%d") <= datetime.datetime.strptime(str(due_date),"%Y-%m-%d")):
                 if not (todo['Status'] == 'Finished' or todo['Status'] == 'finished'):
                     filtered_list.append(todo)
         return filtered_list
@@ -90,7 +74,6 @@ class TodoDAO(object):
             datetime.datetime.strptime(str(Due_by),"%Y-%m-%d")
         except:
             return "error"
-       
         Status = data.get('Status')
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute("INSERT INTO todo(title, description,Due_by,Status) VALUES(%s,%s,%s,%s)",[title ,description,Due_by,Status])
@@ -98,6 +81,7 @@ class TodoDAO(object):
         return data
 
     def update(self, id, data):
+        print("working")
         todo = self.get(id)
         todo.update(data)
         title = data.get('title')
@@ -112,13 +96,15 @@ class TodoDAO(object):
         cursor.execute('UPDATE todo SET  title =% s, description =% s, Status =% s, Due_by =% s WHERE id =% s', (title, description, Status, Due_by, id ))
         mysql.connection.commit()
         return todo
+        
 
     def delete(self, id):
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        input_query="DELETE FROM todo WHERE id =" + str(id) 
-        cursor.execute(input_query)
-        mysql.connection.commit()
-        todo = self.get(id)    
+        if isLogin.login:
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            input_query="DELETE FROM todo WHERE id =" + str(id) 
+            cursor.execute(input_query)
+            mysql.connection.commit()
+            todo = self.get(id)    
         
     def get_all_finished(self):
         self.update_todo()
@@ -150,14 +136,18 @@ class TodoList(Resource):
     @ns.marshal_with(todo, code=201)
     def post(self):
         '''Create a new task'''
-        response  =  DAO.create(api.payload)
-        if response== "error":
-            return {
-            "description": "Please enter date in yyyy-mm-dd",
-            } 
+        if isLogin.login:
+            response  =  DAO.create(api.payload)
+            if response== "error":
+                return {
+                "description": "Please enter date in yyyy-mm-dd",
+                } 
+            else:
+                return response
         else:
-            return response
-
+            return {
+            "description": "Please Login to  UPDATE the TODO",
+            }
 
 
 @ns.route('/<int:id>')
@@ -175,21 +165,29 @@ class Todo(Resource):
     @ns.response(204, 'Todo deleted')
     def delete(self, id):
         '''Delete a task given its identifier'''
-        DAO.delete(id)
-        return '', 204
-
+        if isLogin.login:
+            return DAO.delete(id)
+        else:
+            return {
+            "description": "Please Login to  DELETE the TODO",
+            } 
     @ns.expect(todo)
     @ns.marshal_with(todo)
     def put(self, id):
         '''Update a task given its identifier'''
-        response  =  DAO.update(id, api.payload)
-        if response== "error":
-            return {
-            "description": "Please enter date in yyyy-mm-dd",
-            } 
-        else:
-            return response
+        if isLogin.login:
+            response  =  DAO.update(id, api.payload)
+            if response == "error":
+                return {
+                "description": "Please enter date in yyyy-mm-dd",
+                } 
+            else:
+                return response
 
+        else:
+             return {
+            "description": "Please Login to  UPDATE the TODO",
+            } 
 
 @ns.route('/<string:due_date>')
 class TodoListByDueDate(Resource):
@@ -207,6 +205,7 @@ class TodoListByDueDate(Resource):
             return {
             "description": "Please enter date in yyyy-mm-dd",
             } 
+
 
 @ns.route('/overduedate')
 class TodoListByOverDueDate(Resource):
@@ -254,5 +253,5 @@ class TodoListByOverDueDate(Resource):
         
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+
