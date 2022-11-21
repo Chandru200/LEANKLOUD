@@ -250,8 +250,3 @@ class TodoListByOverDueDate(Resource):
     def get(self):
         '''List all tasks which are FINISHED'''
         return DAO.get_all_finished()
-        
-
-
-
-
